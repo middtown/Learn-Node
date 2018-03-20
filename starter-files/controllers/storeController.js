@@ -52,6 +52,9 @@ exports.resize = async (req, res, next) => {
 
 exports.createStore = async (req, res) => {
 
+  //create a author for each store created
+  req.body.author = req.user._id;
+
   //await needs to be wrapped in a try-catch web, however, we use a function
   //handeling we built in the handlers/errorHandlers file imported into index.js
   const store = await (new Store(req.body)).save();
@@ -66,10 +69,23 @@ exports.getStores = async (req, res) => {
   res.render('stores', { title: 'Stores', stores }); //es6 passing of variable stores
 };
 
+//confirm owner
+const confirmOwner = (store, user) => {
+  if (!store.author.equals(user._id)) {
+    throw Error('You must own this store to edit it.');
+  }
+};
+
+//edit store
 exports.editStore = async (req, res) => {
 
   //find store given the id
   const store = await Store.findOne({ _id: req.params.id });
+
+  //confirm they are the owner of stores
+  confirmOwner(store, req.user);
+
+  //render out editform so the user can update thier store
   res.render('editStore', { title: `Edit ${store.name}`, store });
 };
 
@@ -87,7 +103,7 @@ exports.updateStore = async (req, res) => {
 };
 
 exports.getStoreBySlug = async (req, res) => {
-  const store = await Store.findOne({ slug: req.params.slug });
+  const store = await Store.findOne({ slug: req.params.slug }).populate('author');
   if (!store) return next();
   res.render('store', { store, title: store.name });
 };
@@ -97,7 +113,7 @@ exports.getStoreByTag = async (req, res) => {
   const tagQuery = tag || { $exists: true };
   const tagsPromise = Store.getTagsList();
   const storesPromise = Store.find({ tags: tagQuery });
-  const [tags, stores] = await Promise.all([tagsPromise, storesPromise ]);
+  const [tags, stores] = await Promise.all([tagsPromise, storesPromise]);
 
   res.render('tag', { tags, title: 'Tags', tag, stores });
 };
